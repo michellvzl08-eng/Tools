@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Comparador de Excels</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #EEF1F4;
+    --panel: #FFFFFF;
+    --border: #D7DEE5;
+    --text: #1C2A38;
+    --text-soft: #62727F;
+    --accent: #2A5C8A;
+    --accent-dark: #1E4667;
+    --match: #2E7D32;
+    --match-bg: #E8F3E9;
+    --diff: #B4472C;
+    --diff-bg: #FBEAE6;
+    --radius: 10px;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    padding: 28px 20px 60px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header { margin-bottom: 26px; }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  header p { margin: 0; color: var(--text-soft); font-size: 14px; }
+
+  .grid-files {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 720px) { .grid-files { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .card h2 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 12px;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 22px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: #F3F7FB;
+  }
+  .dropzone .icon { font-size: 26px; margin-bottom: 6px; }
+  .dropzone .main-txt { font-size: 13.5px; font-weight: 600; }
+  .dropzone .sub-txt { font-size: 12px; color: var(--text-soft); margin-top: 2px; }
+  .dropzone input { display: none; }
+
+  .file-loaded {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #F3F7FB;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13.5px;
+  }
+  .file-loaded .name { font-weight: 600; }
+  .file-loaded .rows { color: var(--text-soft); font-size: 12px; }
+  .file-loaded button {
+    background: none;
+    border: none;
+    color: var(--diff);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .field { margin-top: 12px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-soft);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+    font-size: 13.5px;
+    color: var(--text);
+  }
+
+  .compare-row { text-align: center; margin: 20px 0 30px; }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 12px 26px;
+    border-radius: 999px;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+  button.primary:disabled { background: #B8C3CC; cursor: not-allowed; }
+
+  .msg { font-size: 12.5px; color: var(--text-soft); margin-top: 8px; min-height: 16px; }
+  .msg.error { color: var(--diff); font-weight: 600; }
+
+  #resultados { display: none; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 720px) { .stats { grid-template-columns: 1fr; } }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .stat .num { font-size: 26px; font-weight: 800; line-height: 1; }
+  .stat .lbl { font-size: 12px; color: var(--text-soft); margin-top: 4px; }
+  .stat.match .num { color: var(--match); }
+  .stat.diff .num { color: var(--diff); }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .tab {
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-soft);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  .table-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: auto;
+    max-height: 420px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th {
+    position: sticky; top: 0;
+    background: #F5F7F9;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #EDF1F4;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .empty-row td { text-align: center; color: var(--text-soft); padding: 22px; }
+
+  .download-row { text-align: right; margin-top: 14px; }
+  button.secondary {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Comparador de Excels</h1>
+    <p>Sube dos archivos, elige la columna a comparar y encuentra las coincidencias entre ambos.</p>
+  </header>
+
+  <div class="grid-files">
+    <div class="card" id="card1">
+      <h2>Archivo 1</h2>
+      <div id="zone1" class="dropzone">
+        <div class="icon">📄</div>
+        <div class="main-txt">Arrastra tu excel aquí</div>
+        <div class="sub-txt">o haz clic para buscarlo (.xlsx, .xls, .csv)</div>
+        <input type="file" id="input1" accept=".xlsx,.xls,.csv">
+      </div>
+    </div>
+
+    <div class="card" id="card2">
+      <h2>Archivo 2</h2>
+      <div id="zone2" class="dropzone">
+        <div class="icon">📄</div>
+        <div class="main-txt">Arrastra tu excel aquí</div>
+        <div class="sub-txt">o haz clic para buscarlo (.xlsx, .xls, .csv)</div>
+        <input type="file" id="input2" accept=".xlsx,.xls,.csv">
+      </div>
+    </div>
+  </div>
+
+  <div class="compare-row">
+    <button class="primary" id="btnComparar" disabled>Comparar archivos</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="resultados">
+    <div class="stats">
+      <div class="stat match">
+        <div class="num" id="statMatch">0</div>
+        <div class="lbl">Coincidencias</div>
+      </div>
+      <div class="stat diff">
+        <div class="num" id="statSolo1">0</div>
+        <div class="lbl">Solo en Archivo 1</div>
+      </div>
+      <div class="stat diff">
+        <div class="num" id="statSolo2">0</div>
+        <div class="lbl">Solo en Archivo 2</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="coincidencias">Coincidencias</div>
+      <div class="tab" data-tab="solo1">Solo en Archivo 1</div>
+      <div class="tab" data-tab="solo2">Solo en Archivo 2</div>
+    </div>
+
+    <div class="table-wrap"><table id="tabla"><thead></thead><tbody></tbody></table></div>
+
+    <div class="download-row">
+      <button class="secondary" id="btnDescargar">Descargar resultado en Excel</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// =============================================================================
+// ESTADO: guardo aquí lo que sé de cada archivo una vez que se carga
+// =============================================================================
+const estado = {
+  archivo1: { workbook: null, hojas: [], filas: [], columnas: [], colElegida: null, nombreArchivo: "" },
+  archivo2: { workbook: null, hojas: [], filas: [], columnas: [], colElegida: null, nombreArchivo: "" },
+};
+let resultadoActual = { coincidencias: [], solo1: [], solo2: [] };
+
+// =============================================================================
+// NORMALIZACIÓN DE TEXTO (misma idea que la versión en Python: minúsculas,
+// sin espacios de más, sin acentos, para que el match no falle por formato)
+// =============================================================================
+function normalizarTexto(texto) {
+  if (texto === null || texto === undefined) return "";
+  let t = String(texto).trim().toLowerCase();
+  t = t.replace(/\s+/g, " ");
+  t = t.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  return t;
+}
+
+// =============================================================================
+// CARGA DE ARCHIVOS
+// =============================================================================
+function configurarZona(idx) {
+  const zone = document.getElementById(`zone${idx}`);
+  const input = document.getElementById(`input${idx}`);
+
+  zone.addEventListener("click", () => input.click());
+  input.addEventListener("change", e => {
+    if (e.target.files[0]) manejarArchivo(idx, e.target.files[0]);
+  });
+
+  ["dragenter", "dragover"].forEach(ev =>
+    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("drag"); })
+  );
+  ["dragleave", "drop"].forEach(ev =>
+    zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove("drag"); })
+  );
+  zone.addEventListener("drop", e => {
+    if (e.dataTransfer.files[0]) manejarArchivo(idx, e.dataTransfer.files[0]);
+  });
+}
+
+function manejarArchivo(idx, file) {
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const wb = XLSX.read(evt.target.result, { type: "array" });
+      const info = estado[`archivo${idx}`];
+      info.workbook = wb;
+      info.hojas = wb.SheetNames;
+      info.nombreArchivo = file.name;
+      renderCardCargado(idx);
+      seleccionarHoja(idx, info.hojas[0]);
+    } catch (err) {
+      mostrarMensaje(`No pude leer "${file.name}". ¿Seguro que es un Excel válido?`, true);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// =============================================================================
+// RENDER DE CADA TARJETA UNA VEZ QUE EL ARCHIVO CARGÓ
+// =============================================================================
+function renderCardCargado(idx) {
+  const card = document.getElementById(`card${idx}`);
+  const info = estado[`archivo${idx}`];
+
+  card.querySelectorAll(".dropzone, .file-loaded, .field").forEach(el => el.remove());
+
+  const loaded = document.createElement("div");
+  loaded.className = "file-loaded";
+  loaded.innerHTML = `
+    <div>
+      <div class="name">${info.nombreArchivo}</div>
+      <div class="rows" id="rowsInfo${idx}"></div>
+    </div>
+    <button id="quitar${idx}">Quitar</button>
+  `;
+  card.appendChild(loaded);
+
+  document.getElementById(`quitar${idx}`).addEventListener("click", () => reiniciarTarjeta(idx));
+
+  const campoHoja = document.createElement("div");
+  campoHoja.className = "field";
+  campoHoja.innerHTML = `<label>Hoja</label><select id="hoja${idx}"></select>`;
+  card.appendChild(campoHoja);
+
+  const campoCol = document.createElement("div");
+  campoCol.className = "field";
+  campoCol.innerHTML = `<label>Columna a comparar</label><select id="col${idx}"></select>`;
+  card.appendChild(campoCol);
+
+  const selHoja = document.getElementById(`hoja${idx}`);
+  info.hojas.forEach(h => {
+    const opt = document.createElement("option");
+    opt.value = h; opt.textContent = h;
+    selHoja.appendChild(opt);
+  });
+  selHoja.addEventListener("change", e => seleccionarHoja(idx, e.target.value));
+
+  document.getElementById(`col${idx}`).addEventListener("change", e => {
+    info.colElegida = e.target.value;
+    revisarSiPuedeComparar();
+  });
+}
+
+function seleccionarHoja(idx, nombreHoja) {
+  const info = estado[`archivo${idx}`];
+  const ws = info.workbook.Sheets[nombreHoja];
+  const filas = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+  info.filas = filas;
+  info.columnas = filas.length ? Object.keys(filas[0]) : [];
+
+  document.getElementById(`rowsInfo${idx}`).textContent = `${filas.length} filas · ${info.columnas.length} columnas`;
+
+  const selCol = document.getElementById(`col${idx}`);
+  selCol.innerHTML = "";
+  info.columnas.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    selCol.appendChild(opt);
+  });
+
+  // Si alguna columna se llama parecido a "nombre", la preselecciono
+  const preferida = info.columnas.find(c => /nombre|name/i.test(c));
+  info.colElegida = preferida || info.columnas[0] || null;
+  if (info.colElegida) selCol.value = info.colElegida;
+
+  revisarSiPuedeComparar();
+}
+
+function reiniciarTarjeta(idx) {
+  estado[`archivo${idx}`] = { workbook: null, hojas: [], filas: [], columnas: [], colElegida: null, nombreArchivo: "" };
+  const card = document.getElementById(`card${idx}`);
+  card.querySelectorAll(".file-loaded, .field").forEach(el => el.remove());
+
+  const zone = document.createElement("div");
+  zone.id = `zone${idx}`;
+  zone.className = "dropzone";
+  zone.innerHTML = `
+    <div class="icon">📄</div>
+    <div class="main-txt">Arrastra tu excel aquí</div>
+    <div class="sub-txt">o haz clic para buscarlo (.xlsx, .xls, .csv)</div>
+    <input type="file" id="input${idx}" accept=".xlsx,.xls,.csv">
+  `;
+  card.appendChild(zone);
+  configurarZona(idx);
+
+  document.getElementById("resultados").style.display = "none";
+  revisarSiPuedeComparar();
+}
+
+function revisarSiPuedeComparar() {
+  const listo = estado.archivo1.colElegida && estado.archivo2.colElegida;
+  document.getElementById("btnComparar").disabled = !listo;
+}
+
+function mostrarMensaje(texto, esError) {
+  const msg = document.getElementById("msg");
+  msg.textContent = texto;
+  msg.className = "msg" + (esError ? " error" : "");
+}
+
+// =============================================================================
+// COMPARACIÓN
+// =============================================================================
+function compararArchivos() {
+  const a1 = estado.archivo1, a2 = estado.archivo2;
+  const map1 = new Map(), map2 = new Map();
+
+  a1.filas.forEach(fila => {
+    const k = normalizarTexto(fila[a1.colElegida]);
+    if (!k) return;
+    if (!map1.has(k)) map1.set(k, []);
+    map1.get(k).push(fila);
+  });
+  a2.filas.forEach(fila => {
+    const k = normalizarTexto(fila[a2.colElegida]);
+    if (!k) return;
+    if (!map2.has(k)) map2.set(k, []);
+    map2.get(k).push(fila);
+  });
+
+  const keys1 = [...map1.keys()], keys2 = [...map2.keys()];
+  const comunes = keys1.filter(k => map2.has(k));
+  const solo1 = keys1.filter(k => !map2.has(k));
+  const solo2 = keys2.filter(k => !map1.has(k));
+
+  const coincidencias = [];
+  comunes.forEach(k => {
+    map1.get(k).forEach(r1 => {
+      map2.get(k).forEach(r2 => {
+        coincidencias.push({ ...prefijar(r1, "Archivo 1"), ...prefijar(r2, "Archivo 2") });
+      });
+    });
+  });
+
+  const filasSolo1 = solo1.flatMap(k => map1.get(k));
+  const filasSolo2 = solo2.flatMap(k => map2.get(k));
+
+  resultadoActual = { coincidencias, solo1: filasSolo1, solo2: filasSolo2 };
+
+  document.getElementById("statMatch").textContent = coincidencias.length;
+  document.getElementById("statSolo1").textContent = filasSolo1.length;
+  document.getElementById("statSolo2").textContent = filasSolo2.length;
+
+  document.getElementById("resultados").style.display = "block";
+  mostrarMensaje("");
+  renderTabla("coincidencias");
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelector('.tab[data-tab="coincidencias"]').classList.add("active");
+}
+
+function prefijar(fila, sufijo) {
+  const out = {};
+  Object.keys(fila).forEach(k => { out[`${k} (${sufijo})`] = fila[k]; });
+  return out;
+}
+
+// =============================================================================
+// TABLA DE RESULTADOS (por pestaña)
+// =============================================================================
+function renderTabla(tab) {
+  const datos = tab === "coincidencias" ? resultadoActual.coincidencias
+              : tab === "solo1" ? resultadoActual.solo1
+              : resultadoActual.solo2;
+
+  const thead = document.querySelector("#tabla thead");
+  const tbody = document.querySelector("#tabla tbody");
+  thead.innerHTML = "";
+  tbody.innerHTML = "";
+
+  if (!datos.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td>Sin filas en esta categoría.</td></tr>`;
+    return;
+  }
+
+  const columnas = Object.keys(datos[0]);
+  const trHead = document.createElement("tr");
+  columnas.forEach(c => {
+    const th = document.createElement("th");
+    th.textContent = c;
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+
+  datos.forEach(fila => {
+    const tr = document.createElement("tr");
+    columnas.forEach(c => {
+      const td = document.createElement("td");
+      td.textContent = fila[c];
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    renderTabla(tab.dataset.tab);
+  });
+});
+
+// =============================================================================
+// DESCARGA DEL RESULTADO COMO EXCEL (3 hojas)
+// =============================================================================
+function descargarResultado() {
+  const wb = XLSX.utils.book_new();
+  const hojaCoincidencias = XLSX.utils.json_to_sheet(resultadoActual.coincidencias);
+  const hojaSolo1 = XLSX.utils.json_to_sheet(resultadoActual.solo1);
+  const hojaSolo2 = XLSX.utils.json_to_sheet(resultadoActual.solo2);
+
+  XLSX.utils.book_append_sheet(wb, hojaCoincidencias, "Coincidencias");
+  XLSX.utils.book_append_sheet(wb, hojaSolo1, "Solo_en_Archivo_1");
+  XLSX.utils.book_append_sheet(wb, hojaSolo2, "Solo_en_Archivo_2");
+
+  XLSX.writeFile(wb, "comparacion_resultado.xlsx");
+}
+
+document.getElementById("btnComparar").addEventListener("click", compararArchivos);
+document.getElementById("btnDescargar").addEventListener("click", descargarResultado);
+
+configurarZona(1);
+configurarZona(2);
+</script>
+</body>
+</html>
