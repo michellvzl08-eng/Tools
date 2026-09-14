@@ -24,9 +24,7 @@ from matplotlib.patches import FancyArrow
 import os
 from datetime import datetime
 
-# =============================================================================
 # 1. CONFIGURACIÓN GENERAL DEL PLANO
-# =============================================================================
 # Dejo esto como constantes al inicio para no tener que buscar "números
 # mágicos" dentro del código cada vez que quiera ajustar el estilo del plano.
 
@@ -45,10 +43,7 @@ COLOR_PUERTA = "#27AE60"
 COLOR_TEXTO = "#1B1B1B"
 COLOR_EJES = "#BDBDBD"
 
-
-# =============================================================================
 # 2. FUNCIONES PARA DIBUJAR CADA TIPO DE ELEMENTO ESTÁNDAR
-# =============================================================================
 # La idea de tener una función por tipo de elemento es que el plano de
 # cualquier celda nueva se arme siempre con el mismo "lenguaje visual":
 # mismo color y mismo símbolo para robot, cerca, mesa, etc. Así no dependo
@@ -191,9 +186,7 @@ FUNCIONES_DIBUJO = {
 }
 
 
-# =============================================================================
 # 3. CAJETÍN (TITLE BLOCK) ESTÁNDAR
-# =============================================================================
 
 def dibujar_cajetin(fig, datos_cajetin):
     """
@@ -225,9 +218,7 @@ def dibujar_cajetin(fig, datos_cajetin):
                          color=COLOR_TEXTO, va="top", transform=ax_cajetin.transAxes)
 
 
-# =============================================================================
 # 4. FUNCIÓN PRINCIPAL: ARMA EL PLANO A PARTIR DE LA LISTA DE ELEMENTOS
-# =============================================================================
 
 def generar_plano(elementos, datos_cajetin, limites_plano,
                    nombre_archivo="plano_celda"):
@@ -285,9 +276,7 @@ def generar_plano(elementos, datos_cajetin, limites_plano,
     print(f"Plano generado: {ruta_pdf}")
 
 
-# =============================================================================
 # 5. EJEMPLO DE USO / DATOS DE LA CELDA
-# =============================================================================
 # Esta sección es la única que necesito editar cuando cambio de celda:
 # solo describo los elementos y los datos del cajetín, y llamo a
 # generar_plano(). Dejo un ejemplo con datos genéricos como plantilla.
