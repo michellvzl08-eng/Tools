@@ -32,9 +32,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-# =============================================================================
 # 1. CONFIGURACIÓN
-# =============================================================================
+
 # Esta es la única sección que necesito tocar cada vez que cambio de
 # archivos a comparar.
 
@@ -52,9 +51,9 @@ ARCHIVO_SALIDA = os.path.join(CARPETA_SALIDA, "comparacion_resultado.xlsx")
 FUENTE = "Arial"
 
 
-# =============================================================================
+
 # 2. NORMALIZACIÓN DE TEXTO
-# =============================================================================
+
 # Comparar strings "a lo bruto" casi nunca hace match porque vienen con
 # mayúsculas distintas, espacios de más o acentos. Por eso armo una
 # columna auxiliar normalizada y comparo sobre esa, sin tocar el texto
@@ -74,9 +73,8 @@ def normalizar_texto(texto):
     return texto
 
 
-# =============================================================================
 # 3. CARGA DE DATOS
-# =============================================================================
+
 
 def cargar_excel(ruta, hoja, columna_clave):
     """
@@ -98,9 +96,9 @@ def cargar_excel(ruta, hoja, columna_clave):
     return df
 
 
-# =============================================================================
+
 # 4. COMPARACIÓN
-# =============================================================================
+
 
 def comparar(df1, df2):
     """
@@ -134,9 +132,9 @@ def comparar(df1, df2):
     return coincidencias, solo_1, solo_2, claves_comunes
 
 
-# =============================================================================
+
 # 5. EXPORTAR RESULTADOS A EXCEL (con formato)
-# =============================================================================
+
 
 def escribir_hoja(ws, df, color_encabezado):
     """Escribe un DataFrame en una hoja de openpyxl con formato estándar."""
