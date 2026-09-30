@@ -1,0 +1,116 @@
+# -*- coding: utf-8 -*-
+"""
+transcribir_grabaciones.py
+Transcribe grabaciones de pantalla (mp4, mkv, mov, webm, mp3, wav, m4a...)
+a .txt y .srt usando Whisper local (faster-whisper). Nada sale de tu equipo.
+
+Instalacion (una sola vez, en Anaconda Prompt):
+    conda activate spyder-env
+    pip install faster-whisper
+
+Uso:
+    - Desde Spyder: edita la seccion CONFIGURACION y presiona F5.
+    - Desde consola:  python transcribir_grabaciones.py "C:\\ruta\\a\\carpeta"
+                      python transcribir_grabaciones.py video.mp4 --idioma en --modelo medium
+"""
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+# ======================= CONFIGURACION =======================
+CARPETA_ENTRADA = r"C:\Users\TU_USUARIO\Videos\Grabaciones"  # carpeta o archivo
+MODELO = "small"      # tiny | base | small | medium | large-v3  (mas grande = mas preciso y lento)
+IDIOMA = None         # None = autodetectar | "es" | "en"
+TRADUCIR_A_INGLES = False  # True = la salida sale traducida al ingles
+SOBRESCRIBIR = False  # False = salta videos que ya tienen su .txt
+# =============================================================
+
+EXTENSIONES = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".mp3", ".wav", ".m4a", ".flac", ".ogg"}
+
+
+def formato_srt(segundos: float) -> str:
+    ms = int(round(segundos * 1000))
+    h, ms = divmod(ms, 3_600_000)
+    m, ms = divmod(ms, 60_000)
+    s, ms = divmod(ms, 1000)
+    return f"{h:02}:{m:02}:{s:02},{ms:03}"
+
+
+def cargar_modelo(nombre: str):
+    from faster_whisper import WhisperModel
+    try:
+        import ctranslate2
+        if ctranslate2.get_cuda_device_count() > 0:
+            print(f"Cargando modelo '{nombre}' en GPU...")
+            return WhisperModel(nombre, device="cuda", compute_type="float16")
+    except Exception:
+        pass
+    print(f"Cargando modelo '{nombre}' en CPU (int8)...")
+    return WhisperModel(nombre, device="cpu", compute_type="int8")
+
+
+def transcribir(modelo, archivo: Path, idioma, traducir: bool):
+    segmentos, info = modelo.transcribe(
+        str(archivo),
+        language=idioma,
+        task="translate" if traducir else "transcribe",
+        vad_filter=True,          # ignora silencios (comun en grabaciones de pantalla)
+        beam_size=5,
+    )
+    print(f"  Idioma detectado: {info.language} ({info.language_probability:.0%}) | "
+          f"duracion: {info.duration / 60:.1f} min")
+
+    lineas_txt, bloques_srt = [], []
+    for i, seg in enumerate(segmentos, start=1):
+        texto = seg.text.strip()
+        if not texto:
+            continue
+        # Progreso en consola
+        pct = min(seg.end / info.duration, 1.0) if info.duration else 0
+        print(f"  [{pct:5.1%}] {formato_srt(seg.start)[:8]}  {texto}")
+        lineas_txt.append(f"[{formato_srt(seg.start)[:8]}] {texto}")
+        bloques_srt.append(f"{i}\n{formato_srt(seg.start)} --> {formato_srt(seg.end)}\n{texto}\n")
+
+    archivo.with_suffix(".txt").write_text("\n".join(lineas_txt), encoding="utf-8")
+    archivo.with_suffix(".srt").write_text("\n".join(bloques_srt), encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Transcribe grabaciones con Whisper local")
+    parser.add_argument("entrada", nargs="?", default=CARPETA_ENTRADA)
+    parser.add_argument("--modelo", default=MODELO)
+    parser.add_argument("--idioma", default=IDIOMA)
+    parser.add_argument("--traducir", action="store_true", default=TRADUCIR_A_INGLES)
+    parser.add_argument("--sobrescribir", action="store_true", default=SOBRESCRIBIR)
+    # parse_known_args evita errores con los argumentos que mete Spyder
+    args, _ = parser.parse_known_args()
+
+    entrada = Path(args.entrada)
+    if entrada.is_file():
+        archivos = [entrada]
+    elif entrada.is_dir():
+        archivos = sorted(p for p in entrada.iterdir() if p.suffix.lower() in EXTENSIONES)
+    else:
+        sys.exit(f"No existe: {entrada}")
+
+    if not args.sobrescribir:
+        archivos = [a for a in archivos if not a.with_suffix(".txt").exists()]
+    if not archivos:
+        print("No hay archivos pendientes por transcribir.")
+        return
+
+    modelo = cargar_modelo(args.modelo)
+    for n, archivo in enumerate(archivos, start=1):
+        print(f"\n({n}/{len(archivos)}) {archivo.name}")
+        t0 = time.time()
+        try:
+            transcribir(modelo, archivo, args.idioma, args.traducir)
+            print(f"  Listo en {time.time() - t0:.0f} s -> {archivo.stem}.txt / .srt")
+        except Exception as e:
+            print(f"  ERROR con {archivo.name}: {e}")
+
+
+if __name__ == "__main__":
+    main()
